@@ -41,7 +41,8 @@ class addvideo_form extends \moodleform {
         $mform->addElement('hidden', 'courseid', $this->_customdata['courseid']);
         $mform->setType('courseid', PARAM_INT);
 
-        $element = $mform->createElement('filemanager_opencast', 'videos_filemanager', get_string('videostoupload', 'block_opencast'), null, array('accepted_types' => array('video'),
+        $element = $mform->createElement('filemanager_opencast', 'videos_filemanager',
+            get_string('videostoupload', 'block_opencast'), null, array('accepted_types' => array('video'),
             'subdirs' => 0));
 
         $element->setMaxBytes(get_config('block_opencast', 'uploadfilelimit'));
