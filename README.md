@@ -98,7 +98,12 @@ This is done via a cronjob, which processes all Upload Jobs in a first in first 
 Please make sure that the *Maximum Time limit* for cron execution in *Site administration*->*Server*->*Performance* is not restricted (value of 0 means no timelimit).
 Then the cron job is not terminated early.
 
-The plugin <a href="https://github.com/unirz-tu-ilmenau/moodle-tool_opencast">tool_opencast</a> bundles some administration settings for all opencast plugins, which have to be configured first!
+**IMPORTANT:** The plugin <a href="https://github.com/unirz-tu-ilmenau/moodle-tool_opencast">tool_opencast</a> bundles some administration settings for all opencast plugins, which have to be configured first!
+
+In addition to the roles to access the opencast API, the opencast user has to be provided with the role `ROLE_GROUP_MH_DEFAULT_ORG_EXTERNAL_APPLICATIONS`.
+Otherwise, moodle will not have the capabilities to write or read series created through moodle.
+This role can be changed, but has to be aligned with one of the roles you set under [Roles](#roles).
+
 
 #### Settings for upload jobs
 In this section you can define the following settings:
@@ -112,6 +117,7 @@ See issue <a href="https://github.com/unirz-tu-ilmenau/moodle-block_opencast/iss
 - Setup the unique shortname of the workflow that should be started for deleting a video file in opencast. If a workflow is selected, a 'delete' icon is offered to the teacher, which will actually delete the event in the opencast system.
 We recommend to use only one of the two previous 'delete' options!
 - The setting 'Delete videofile from moodle' causes the moodle system to delete the file of the uploaded video as soon as possible. If set to false, the video file will remain in the moodle system in the draft area until a cron job deletes it (usually some days later). 
+- With 'Allowed file extensions' you can specify which file extensions users can upload as videos. The extensions must exist as file types in Moodle under Site administration -> Server -> File types. If left blank all of Moodle's file types in the type group 'video' are allowed.
  
 #### Settings for overview page
 In this section you can define how many videos should be displayed in the block.
@@ -150,13 +156,14 @@ In the ACL Roles the following placeholders can be used:
  In case that multiple groups are selected in the visibility dialog, one ACL rule for every group is created.
  The basic role including the course id is removed in the case of group visibility.
     
-To give an example for Roles, which also meets the LTI standard, you can use the following setting:
+To give an example for Roles, which also meets the LTI standard and which is used by the plugin by default, you can use the following setting:
 
-| Role                    | Actions    | Permanent |
-| ------------------------|------------|-----------|
-| ROLE_ADMIN              | write,read | Yes       |
-| [COURSEID]_Instructor   | write,read | Yes       |
-| [COURSEGROUPID]_Learner | read       | No        |
+| Role                                            | Actions    | Permanent |
+| ------------------------------------------------|------------|-----------|
+| ROLE_ADMIN                                      | write,read | Yes       |
+| ROLE_GROUP_MH_DEFAULT_ORG_EXTERNAL_APPLICATIONS | write,read | Yes       |
+| [COURSEID]_Instructor                           | write,read | Yes       |
+| [COURSEGROUPID]_Learner                         | read       | No        |
     
 
 Capabilities
@@ -176,6 +183,22 @@ Logging
 -------
 The execution of upload jobs are being logged, which can be viewed at *Site administration*->*Reports*->*Logs*.
 View the setting "Site Errors" instead of "All activities" you can view only those upload jobs, which failed.    
+
+Placement
+---------
+
+This plugin is designed as block and, to be used, it will be initially added to a Moodle course by a teacher. The block shows a quick overview over the videos which are uploaded in the block, but mainly links to a fullscreen overview page where the full functionality of the plugin is provided.
+
+If you want to provide the plugin in every course by default without requiring that the teachers adds it to the course, please have a look at Moodle core's $CFG->defaultblocks setting which is set in config.php only and which is described on https://github.com/moodle/moodle/blob/master/config-dist.php.
+
+As an alternative to placing the block by default, you might also want to add a link to the plugin's overview page to the Boost nav drawer. This plugin does not offer support for adding a Boost nav drawer item itself, but we would like to reference the https://moodle.org/plugins/local_boostnavigation plugin for this job.
+After installing local_boostnavigation to your Moodle instance, please add the following line to the `local_boostnavigation | insertcustomcoursenodesusers` setting:
+```
+Opencast Videos|/blocks/opencast/index.php?courseid={courseid}|||editingteacher,manager|admin|OR|fa-film|opencast|grades
+```
+Please take extra care that the `editingteacher,manager` list of roles should match the list of roles who are given the `block/opencast:addvideo` capability in your Moodle instance.
+After adding the Boost nav drawer item, you can also remove the `block/opencast:addinstance` capability from all roles as adding the block is not really necessary anymore.
+
 
 ## License ##
 

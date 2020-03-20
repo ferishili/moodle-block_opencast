@@ -165,18 +165,35 @@ class block_opencast_renderer extends plugin_renderer_base {
         $table = new html_table();
         $table->head = array(
             get_string('date'),
-            get_string('name'),
-            get_string('size'),
+            get_string('title', 'block_opencast'),
+            get_string('presenterfilename', 'block_opencast'),
+            get_string('presenterfilesize', 'block_opencast'),
+            get_string('presentationfilename', 'block_opencast'),
+            get_string('presentationfilesize', 'block_opencast'),
             get_string('status'),
             get_string('countfailed', 'block_opencast'),
             get_string('createdby', 'block_opencast'));
 
         foreach ($uploadjobs as $uploadjob) {
 
+            $uploadjob->metadata ? $metadata = json_decode($uploadjob->metadata): $metadata = '';
+            $title = '';
+            if ($metadata) {
+                foreach ($metadata as $ms) {
+                    if ($ms->id == 'title') {
+                        $title = $ms->value;
+                        break;
+                    }
+                }
+            }
+
             $row = [];
             $row[] = userdate($uploadjob->timecreated, get_string('strftimedatetime', 'langconfig'));
-            $row[] = $uploadjob->filename;
-            $row[] = $uploadjob->filesize;
+            $row[] = $title;
+            $row[] = $uploadjob->presenter_filename;
+            $row[] = $uploadjob->presenter_filesize ? display_size($uploadjob->presenter_filesize) : "";
+            $row[] = $uploadjob->presentation_filename;
+            $row[] = $uploadjob->presentation_filesize ? display_size($uploadjob->presentation_filesize) : "";
             $row[] = $this->render_status($uploadjob->status);
             $row[] = $uploadjob->countfailed;
             $row[] = fullname($uploadjob);
@@ -297,6 +314,22 @@ class block_opencast_renderer extends plugin_renderer_base {
         return \html_writer::link($url, $icon);
     }
 
+    //metadata
+    /**
+     * Render the link to update metadata.
+     *
+     * @param string $videoidentifier
+     */
+    public function render_update_metadata_event_icon($courseid, $videoidentifier) {
+
+        $url = new \moodle_url('/blocks/opencast/updatemetadata.php', array('video_identifier' => $videoidentifier, 'courseid' => $courseid));
+        $text = get_string('updatemetadata', 'block_opencast');
+
+        $icon = $this->output->pix_icon('t/edit', $text);
+
+        return \html_writer::link($url, $icon);
+    }
+
     /**
      * Render the information about the video before finally delete it.
      *
@@ -365,5 +398,22 @@ class block_opencast_renderer extends plugin_renderer_base {
 
         return html_writer::tag('ul', $o);
     }
+
+    public function render_series_settings_actions(int $courseid, bool $createseries, bool $editseries): string {
+        $context = new \stdClass();
+        $context->hasanyactions = false;
+        if ($createseries) {
+            $context->hasanyactions = true;
+            $url = new moodle_url('/blocks/opencast/createseries.php', array('courseid' => $courseid));
+            $context->createseriesurl = $url->out();
+        }
+        if ($editseries) {
+            $context->hasanyactions = true;
+            $url = new moodle_url('/blocks/opencast/editseries.php', array('courseid' => $courseid));
+            $context->editseriesurl = $url->out();
+        }
+        return $this->render_from_template('block_opencast/series_settings_actions', $context);
+    }
+
 
 }

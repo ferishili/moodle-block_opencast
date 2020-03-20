@@ -724,15 +724,31 @@ class apibridge {
                 $event->add_acl(true, $action, $this->replace_placeholders($role->rolename, $job->courseid)[0]);
             }
         }
+        // applying the media types to the event
+        $valid_storedfile = true;
+        if ($job->presenter_fileid) {
+            $event->set_presenter($job->presenter_fileid);
+            if (!$event->get_presenter()) {
+                $valid_storedfile = false;
+            }
+        }
+        if ($job->presentation_fileid ) {
+            $event->set_presentation($job->presentation_fileid);
+            if (!$event->get_presentation()) {
+                $valid_storedfile = false;
+            }
+        }
 
-        $event->set_presentation($job->fileid);
-
-        if (!$storedfile = $event->get_presentation()) {
+        if (!$valid_storedfile) {
             $DB->delete_records('block_opencast_uploadjob', ['id' => $job->id]);
             throw new \moodle_exception('invalidfiletoupload', 'tool_opencast');
         }
 
-        $event->add_meta_data('title', $storedfile->get_filename());
+        if ($job->metadata) {
+            foreach (json_decode($job->metadata) as $metadata ) {
+                $event->add_meta_data($metadata->id, $metadata->value);
+            }
+        }
         $event->add_meta_data('isPartOf', $seriesidentifier);
         $params = $event->get_form_params();
 
@@ -1150,15 +1166,17 @@ class apibridge {
      * Triggers the workflow to update the metadata in opencast.
      * This is necessary, when ACL rules of an event were updated in order to republish the video with the correct
      * access rights.
-     * @param string $event id of the event the metadata should be updated for.
+     * @param string $eventid id of the event the metadata should be updated for.
      * @return bool true, if the workflow was successfully started.
      * @throws \dml_exception
      * @throws \moodle_exception
      */
-    private function update_metadata($event) {
+    private function update_metadata($eventid) {
         $workflow = get_config('block_opencast', 'workflow_roles');
-
-        return $this->start_workflow($event, $workflow);
+        if (!$workflow) {
+            return true;
+        }
+        return $this->start_workflow($eventid, $workflow);
     }
 
     /**
@@ -1404,4 +1422,63 @@ class apibridge {
         self::$testing = $testing;
         self::get_instance(true);
     }
+
+    //Metadata
+
+    /**
+     * The the allowance of the update metadata process
+     * @param bool the capability of updating!
+     */
+    public function can_update_event_metadata($video, $courseid) {
+
+        if (isset($video->processing_state) &&
+            ($video->processing_state !== 'RUNNING' && $video->processing_state !== 'PAUSED')) {
+            $context = \context_course::instance($courseid);
+            return has_capability('block/opencast:addvideo', $context);
+        }
+
+        return false;
+    }
+
+    /**
+     * Get the event's metadata of the specified type
+     * @param string $eventidentifier identifier of the event
+     * @return stdClass $metadata
+     */
+    public function get_event_metadata($eventidentifier, $query = '') {
+        $api = new api();
+        $resource = '/api/events/' . $eventidentifier . '/metadata' . $query;
+        $metadata = $api->oc_get($resource);
+
+        if ($api->get_http_code() != 200) {
+            return  $api->get_http_code();
+        }
+
+        return json_decode($metadata);
+
+    }
+
+    /**
+     * Update the metadata with the matching type of the specified event.
+     * @param string $eventidentifier identifier of the event
+     * @param stdClass $metadata collection of metadata
+     * @return bool
+     * @throws \dml_exception
+     * @throws \moodle_exception
+     */
+    public function update_event_metadata($eventidentifier, $metadata) {
+
+
+        $resource = '/api/events/' . $eventidentifier . '/metadata?type=dublincore/episode';
+
+        $params['metadata'] = json_encode($metadata);
+        $api = new api();
+        $api->oc_put($resource, $params);
+
+        if ($api->get_http_code() == 204) {
+            return $this->update_metadata($eventidentifier);
+        };
+        return false;
+    }
+
 }
